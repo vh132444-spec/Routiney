@@ -34,13 +34,14 @@
         .tab-content.active { display: block; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
+        /* 중요 일정(전날/당일) 강조 애니메이션 */
         .urgent-bg {
             background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
             animation: pulse-red 3s infinite;
         }
         @keyframes pulse-red {
             0% { opacity: 1; }
-            50% { opacity: 0.95; }
+            50% { opacity: 0.92; }
             100% { opacity: 1; }
         }
 
@@ -60,7 +61,7 @@
                         <span id="event-tag" class="hidden text-[10px] bg-yellow-400 text-black px-2 py-0.5 rounded-full font-black animate-bounce">EVENT</span>
                     </h1>
                     <p id="today-date-display" class="text-[11px] opacity-80 font-medium mt-1"></p>
-                    <p id="header-alert-msg" class="text-xs font-black text-yellow-200 mt-1 hidden"></p>
+                    <p id="header-alert-msg" class="text-[11px] font-black text-yellow-200 mt-2 hidden leading-tight"></p>
                 </div>
                 <div class="flex flex-col items-end">
                     <button onclick="setExamDate()" id="d-day-display" class="bg-white/20 px-3 py-1 rounded-full text-xs font-black border border-white/20 active:scale-95 transition-all mb-2"></button>
@@ -122,7 +123,7 @@
             <div id="content-edit" class="tab-content p-5 space-y-8 min-h-full">
                 <div class="space-y-3">
                     <div class="flex justify-between items-center">
-                        <h3 class="font-black text-slate-800 text-xs uppercase tracking-tight">📅 일정 관리</h3>
+                        <h3 class="font-black text-slate-800 text-xs uppercase tracking-tight">📅 중요 일정 관리</h3>
                         <button onclick="addSchedule()" class="text-[10px] bg-slate-800 text-white px-3 py-1 rounded-full font-bold">+ 추가</button>
                     </div>
                     <div id="full-schedule-list" class="space-y-2"></div>
@@ -139,19 +140,27 @@
     </div>
 
     <script>
+        // 초기 루틴 데이터: 식사 시간 추가 및 운동 시간 30분 조정
         let state = {
             routines: JSON.parse(localStorage.getItem('routines')) || [
-                { time: "06:00", task: "기상 및 스트레칭" },
+                { time: "06:00", task: "기상 및 아침 샤워 🚿" },
+                { time: "06:30", task: "아침 식사 🍎" },
+                { time: "07:00", task: "영단어 및 스트레칭" },
                 { time: "08:40", task: "국어 실전 모의" },
                 { time: "10:20", task: "수학 집중 문풀" },
-                { time: "12:30", task: "점심 및 휴식" },
+                { time: "12:30", task: "점심 식사 및 휴식 🍱" },
                 { time: "13:30", task: "영어 독해" },
-                { time: "16:30", task: "탐구 영역" },
-                { time: "19:30", task: "오답 정리" },
-                { time: "22:40", task: "취침" }
+                { time: "15:30", task: "탐구 영역 1️⃣" },
+                { time: "16:40", task: "탐구 영역 2️⃣" },
+                { time: "17:50", task: "수학 취약 보강" },
+                { time: "18:50", task: "저녁 식사 및 휴식 🍗" },
+                { time: "19:50", task: "오답 정리" },
+                { time: "21:00", task: "운동 (30분 집중) 🏃‍♂️" },
+                { time: "21:30", task: "저녁 샤워 및 명상 🛁" },
+                { time: "22:20", task: "취침 준비 및 취침 😴" }
             ],
-            schedules: JSON.parse(localStorage.getItem('schedules')) || [{title: "2026 수능", date: "2025-11-13"}], // 기본 스케줄 예시
-            essentials: JSON.parse(localStorage.getItem('essentials')) || ["영양제", "물 마시기"],
+            schedules: JSON.parse(localStorage.getItem('schedules')) || [{title: "2026 수능", date: "2026-11-19"}],
+            essentials: JSON.parse(localStorage.getItem('essentials')) || ["영양제", "물 마시기", "스마트폰 정리"],
             history: JSON.parse(localStorage.getItem('history')) || {},
             examDate: localStorage.getItem('examDate') || "2026-11-19",
             checks: JSON.parse(localStorage.getItem('checks')) || {},
@@ -159,20 +168,21 @@
             activeTab: 'today'
         };
 
-        // 타임존 문제를 방지하기 위해 로컬 날짜 문자열(YYYY-MM-DD)을 기반으로 자정 객체를 생성하는 함수
-        function getMidnightDate(dateStr) {
-            const [y, m, d] = dateStr.split('-').map(Number);
+        function getMidnightDate(dateObj) {
+            return new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0, 0);
+        }
+
+        function parseDateStr(str) {
+            const [y, m, d] = str.split('-').map(Number);
             return new Date(y, m - 1, d, 0, 0, 0, 0);
         }
 
-        // 오늘 날짜의 YYYY-MM-DD 문자열 반환
-        const getTodayStr = () => {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
-        };
+        }
 
         window.onload = () => { 
             renderAll(); 
@@ -188,21 +198,22 @@
         }
 
         function updateHeader() {
-            const todayStr = getTodayStr();
-            const todayDate = new Date();
-            document.getElementById('today-date-display').innerText = todayDate.toLocaleDateString('ko-KR', { month:'long', day:'numeric', weekday:'short' });
+            const now = new Date();
+            const todayMidnight = getMidnightDate(now);
+            const tomorrowMidnight = new Date(todayMidnight.getTime() + (24 * 60 * 60 * 1000));
             
-            // D-Day 계산 로직 수정 (자정 기준)
-            const targetDate = getMidnightDate(state.examDate);
-            const todayMidnight = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate(), 0, 0, 0, 0);
+            const todayStr = formatDate(todayMidnight);
+            const tomorrowStr = formatDate(tomorrowMidnight);
+
+            document.getElementById('today-date-display').innerText = todayMidnight.toLocaleDateString('ko-KR', { month:'long', day:'numeric', weekday:'short' });
             
-            const diffTime = targetDate - todayMidnight;
-            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-            
+            const targetDate = parseDateStr(state.examDate);
+            const diffDays = Math.round((targetDate - todayMidnight) / (1000 * 60 * 60 * 24));
             document.getElementById('d-day-display').innerText = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? "D-Day" : "D+"+Math.abs(diffDays));
 
-            // 중요 일정 체크
             const todayEvent = state.schedules.find(s => s.date === todayStr);
+            const tomorrowEvent = state.schedules.find(s => s.date === tomorrowStr);
+            
             const header = document.getElementById('header-section');
             const alertMsg = document.getElementById('header-alert-msg');
             const eventTag = document.getElementById('event-tag');
@@ -211,7 +222,12 @@
                 header.classList.add('urgent-bg');
                 alertMsg.classList.remove('hidden');
                 eventTag.classList.remove('hidden');
-                alertMsg.innerText = `🚨 오늘은 '${todayEvent.title}' 날입니다!`;
+                alertMsg.innerHTML = `🚨 <b>TODAY:</b> ${todayEvent.title}`;
+            } else if (tomorrowEvent) {
+                header.classList.add('urgent-bg');
+                alertMsg.classList.remove('hidden');
+                eventTag.classList.remove('hidden');
+                alertMsg.innerHTML = `⚠️ <b>내일 일정:</b> ${tomorrowEvent.title}`;
             } else {
                 header.classList.remove('urgent-bg');
                 alertMsg.classList.add('hidden');
@@ -221,7 +237,7 @@
 
         function renderEssentials() {
             const list = document.getElementById('essentials-list');
-            const today = getTodayStr();
+            const today = formatDate(new Date());
             list.innerHTML = state.essentials.map((item, i) => {
                 const checked = state.checks[`${today}-e-${i}`];
                 return `
@@ -239,7 +255,7 @@
         }
 
         function renderRoutine() {
-            const today = getTodayStr();
+            const today = formatDate(new Date());
             const container = document.getElementById('routine-list');
             const restView = document.getElementById('rest-view');
             const statusMsg = document.getElementById('status-msg');
@@ -288,18 +304,18 @@
         }
 
         function toggleRestDay() {
-            state.restDays[getTodayStr()] = !state.restDays[getTodayStr()];
+            state.restDays[formatDate(new Date())] = !state.restDays[formatDate(new Date())];
             save(); renderRoutine();
         }
 
         function toggleEssential(i) {
-            const key = `${getTodayStr()}-e-${i}`;
+            const key = `${formatDate(new Date())}-e-${i}`;
             state.checks[key] = !state.checks[key];
             save(); renderEssentials();
         }
 
         function toggleRoutine(i) {
-            const today = getTodayStr();
+            const today = formatDate(new Date());
             if (state.restDays[today]) return;
             const key = `${today}-r-${i}`;
             state.checks[key] = !state.checks[key];
@@ -322,10 +338,7 @@
             const chart = document.getElementById('weekly-chart');
             const dates = Array.from({length: 7}, (_, i) => {
                 const d = new Date(); d.setDate(d.getDate() - (6-i));
-                const y = d.getFullYear();
-                const m = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                return `${y}-${m}-${dd}`;
+                return formatDate(d);
             });
             chart.innerHTML = dates.map(date => {
                 const rate = state.history[date] || 0;
@@ -348,7 +361,7 @@
             const editList = document.getElementById('edit-list');
             editList.innerHTML = state.routines.map((item, i) => `
                 <div class="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
-                    <input type="time" value="${item.time}" onchange="editRoutine(${i}, 'time', this.value)" class="bg-slate-50 rounded px-1 text-[11px] font-black h-8 w-20 text-center font-mono">
+                    <input type="time" value="${item.time}" onchange="editRoutine(${i}, 'time', this.value)" class="bg-slate-50 rounded px-1 text-[11px] font-black h-8 w-20 text-center font-mono text-indigo-700">
                     <input type="text" value="${item.task}" onchange="editRoutine(${i}, 'task', this.value)" class="flex-1 bg-transparent text-sm font-bold outline-none px-1">
                     <button onclick="deleteRoutine(${i})" class="text-slate-300 px-3">×</button>
                 </div>
@@ -365,9 +378,10 @@
 
         function addSchedule() {
             const title = prompt("일정 내용:");
-            const date = prompt("날짜 (YYYY-MM-DD):", getTodayStr());
-            if(title && date) { 
+            const date = prompt("날짜 (YYYY-MM-DD):", formatDate(new Date()));
+            if(title && date && /^\d{4}-\d{2}-\d{2}$/.test(date)) { 
                 state.schedules.push({title, date}); 
+                state.schedules.sort((a,b) => a.date.localeCompare(b.date));
                 save(); renderEdit(); updateHeader(); 
             }
         }
@@ -398,7 +412,7 @@
         }
 
         function updateHistory() {
-            const today = getTodayStr();
+            const today = formatDate(new Date());
             const done = state.routines.filter((_, i) => state.checks[`${today}-r-${i}`]).length;
             state.history[today] = Math.round((done / state.routines.length) * 100);
             save();
