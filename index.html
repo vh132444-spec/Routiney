@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>마이 루틴 매니저 Pro</title>
+    
+    <!-- 아이폰 홈 화면 추가 시 아이콘 및 앱 설정 -->
+    <link rel="apple-touch-icon" href="https://imgnn.seoul.co.kr/img/upload/2014/05/30/SSI_20140530134057.jpg">
+    <meta name="apple-mobile-web-app-title" content="루틴매니저">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- 폰트 로딩 최적화 -->
@@ -34,7 +41,6 @@
         .tab-content.active { display: block; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* 중요 일정(전날/당일) 강조 애니메이션 */
         .urgent-bg {
             background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
             animation: pulse-red 3s infinite;
@@ -140,7 +146,6 @@
     </div>
 
     <script>
-        // 초기 루틴 데이터: 식사 시간 추가 및 운동 시간 30분 조정
         let state = {
             routines: JSON.parse(localStorage.getItem('routines')) || [
                 { time: "06:00", task: "기상 및 아침 샤워 🚿" },
@@ -201,23 +206,17 @@
             const now = new Date();
             const todayMidnight = getMidnightDate(now);
             const tomorrowMidnight = new Date(todayMidnight.getTime() + (24 * 60 * 60 * 1000));
-            
             const todayStr = formatDate(todayMidnight);
             const tomorrowStr = formatDate(tomorrowMidnight);
-
             document.getElementById('today-date-display').innerText = todayMidnight.toLocaleDateString('ko-KR', { month:'long', day:'numeric', weekday:'short' });
-            
             const targetDate = parseDateStr(state.examDate);
             const diffDays = Math.round((targetDate - todayMidnight) / (1000 * 60 * 60 * 24));
             document.getElementById('d-day-display').innerText = diffDays > 0 ? `D-${diffDays}` : (diffDays === 0 ? "D-Day" : "D+"+Math.abs(diffDays));
-
             const todayEvent = state.schedules.find(s => s.date === todayStr);
             const tomorrowEvent = state.schedules.find(s => s.date === tomorrowStr);
-            
             const header = document.getElementById('header-section');
             const alertMsg = document.getElementById('header-alert-msg');
             const eventTag = document.getElementById('event-tag');
-            
             if (todayEvent) {
                 header.classList.add('urgent-bg');
                 alertMsg.classList.remove('hidden');
@@ -260,7 +259,6 @@
             const restView = document.getElementById('rest-view');
             const statusMsg = document.getElementById('status-msg');
             const restBtn = document.getElementById('rest-btn');
-
             if (state.restDays[today]) {
                 container.classList.add('hidden');
                 restView.classList.remove('hidden');
@@ -274,11 +272,9 @@
                 restBtn.innerText = "전체 휴식";
                 restBtn.classList.remove('bg-rose-500');
             }
-
             const now = new Date();
             const curTime = now.getHours() * 60 + now.getMinutes();
             let statusText = "☕️ 지금은 휴식 중";
-
             container.innerHTML = state.routines.map((item, i) => {
                 const [h, m] = item.time.split(':').map(Number);
                 const isChecked = state.checks[`${today}-r-${i}`];
@@ -287,7 +283,6 @@
                 const [nh, nm] = nextTimeStr.split(':').map(Number);
                 const isActive = curTime >= taskTime && curTime < (nh * 60 + nm);
                 if (isActive) statusText = `🔥 지금은 <span class="underline ml-1">${item.task}</span> 시간!`;
-
                 return `
                     <div class="flex items-center justify-between p-4 rounded-2xl bg-white border transition-all ${isActive ? 'active-task ring-4 ring-indigo-50' : 'border-slate-100'}">
                         <div class="flex items-center gap-4 flex-1 cursor-pointer" onclick="toggleRoutine(${i})">
@@ -303,43 +298,20 @@
             statusMsg.innerHTML = statusText;
         }
 
-        function toggleRestDay() {
-            state.restDays[formatDate(new Date())] = !state.restDays[formatDate(new Date())];
-            save(); renderRoutine();
-        }
-
-        function toggleEssential(i) {
-            const key = `${formatDate(new Date())}-e-${i}`;
-            state.checks[key] = !state.checks[key];
-            save(); renderEssentials();
-        }
-
-        function toggleRoutine(i) {
-            const today = formatDate(new Date());
-            if (state.restDays[today]) return;
-            const key = `${today}-r-${i}`;
-            state.checks[key] = !state.checks[key];
-            save(); updateHistory(); renderRoutine();
-        }
-
+        function toggleRestDay() { state.restDays[formatDate(new Date())] = !state.restDays[formatDate(new Date())]; save(); renderRoutine(); }
+        function toggleEssential(i) { const key = `${formatDate(new Date())}-e-${i}`; state.checks[key] = !state.checks[key]; save(); renderEssentials(); }
+        function toggleRoutine(i) { const today = formatDate(new Date()); if (state.restDays[today]) return; const key = `${today}-r-${i}`; state.checks[key] = !state.checks[key]; save(); updateHistory(); renderRoutine(); }
         function switchTab(tab) {
             state.activeTab = tab;
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`content-${tab}`).classList.add('active');
-            document.querySelectorAll('button[id^="tab-"]').forEach(btn => {
-                btn.classList.remove('text-indigo-600', 'border-indigo-600');
-                btn.classList.add('text-slate-400');
-            });
+            document.querySelectorAll('button[id^="tab-"]').forEach(btn => { btn.classList.remove('text-indigo-600', 'border-indigo-600'); btn.classList.add('text-slate-400'); });
             document.getElementById(`tab-${tab}`).classList.add('text-indigo-600', 'border-indigo-600');
             renderAll();
         }
-
         function renderStats() {
             const chart = document.getElementById('weekly-chart');
-            const dates = Array.from({length: 7}, (_, i) => {
-                const d = new Date(); d.setDate(d.getDate() - (6-i));
-                return formatDate(d);
-            });
+            const dates = Array.from({length: 7}, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (6-i)); return formatDate(d); });
             chart.innerHTML = dates.map(date => {
                 const rate = state.history[date] || 0;
                 return `
@@ -352,11 +324,9 @@
                     </div>
                 `;
             }).join('');
-            
             const rates = Object.values(state.history);
             document.getElementById('avg-rate').innerText = `${rates.length ? Math.round(rates.reduce((a,b)=>a+b, 0) / rates.length) : 0}%`;
         }
-
         function renderEdit() {
             const editList = document.getElementById('edit-list');
             editList.innerHTML = state.routines.map((item, i) => `
@@ -366,7 +336,6 @@
                     <button onclick="deleteRoutine(${i})" class="text-slate-300 px-3">×</button>
                 </div>
             `).join('');
-            
             const scheduleList = document.getElementById('full-schedule-list');
             scheduleList.innerHTML = state.schedules.map((s, i) => `
                 <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
@@ -375,48 +344,20 @@
                 </div>
             `).join('');
         }
-
         function addSchedule() {
             const title = prompt("일정 내용:");
             const date = prompt("날짜 (YYYY-MM-DD):", formatDate(new Date()));
-            if(title && date && /^\d{4}-\d{2}-\d{2}$/.test(date)) { 
-                state.schedules.push({title, date}); 
-                state.schedules.sort((a,b) => a.date.localeCompare(b.date));
-                save(); renderEdit(); updateHeader(); 
-            }
+            if(title && date && /^\d{4}-\d{2}-\d{2}$/.test(date)) { state.schedules.push({title, date}); state.schedules.sort((a,b) => a.date.localeCompare(b.date)); save(); renderEdit(); updateHeader(); }
         }
-
         function deleteSchedule(i) { state.schedules.splice(i, 1); save(); renderEdit(); updateHeader(); }
         function editRoutine(i, key, val) { state.routines[i][key] = val; state.routines.sort((a,b)=>a.time.localeCompare(b.time)); save(); renderEdit(); }
         function addNewRoutine() { state.routines.push({time: "12:00", task: "새 루틴"}); save(); renderEdit(); }
         function deleteRoutine(i) { state.routines.splice(i,1); save(); renderEdit(); }
         function addNewEssential() { const t = prompt("할 일:"); if(t) { state.essentials.push(t); save(); renderEssentials(); } }
         function deleteEssential(i) { state.essentials.splice(i, 1); save(); renderEssentials(); }
-        
-        function setExamDate() { 
-            const d = prompt("목표 날짜 (YYYY-MM-DD):", state.examDate); 
-            if(d && /^\d{4}-\d{2}-\d{2}$/.test(d)) { 
-                state.examDate = d; 
-                save(); updateHeader(); 
-            } 
-        }
-
-        function save() {
-            localStorage.setItem('routines', JSON.stringify(state.routines));
-            localStorage.setItem('essentials', JSON.stringify(state.essentials));
-            localStorage.setItem('schedules', JSON.stringify(state.schedules));
-            localStorage.setItem('history', JSON.stringify(state.history));
-            localStorage.setItem('checks', JSON.stringify(state.checks));
-            localStorage.setItem('restDays', JSON.stringify(state.restDays));
-            localStorage.setItem('examDate', state.examDate);
-        }
-
-        function updateHistory() {
-            const today = formatDate(new Date());
-            const done = state.routines.filter((_, i) => state.checks[`${today}-r-${i}`]).length;
-            state.history[today] = Math.round((done / state.routines.length) * 100);
-            save();
-        }
+        function setExamDate() { const d = prompt("목표 날짜 (YYYY-MM-DD):", state.examDate); if(d && /^\d{4}-\d{2}-\d{2}$/.test(d)) { state.examDate = d; save(); updateHeader(); } }
+        function save() { localStorage.setItem('routines', JSON.stringify(state.routines)); localStorage.setItem('essentials', JSON.stringify(state.essentials)); localStorage.setItem('schedules', JSON.stringify(state.schedules)); localStorage.setItem('history', JSON.stringify(state.history)); localStorage.setItem('checks', JSON.stringify(state.checks)); localStorage.setItem('restDays', JSON.stringify(state.restDays)); localStorage.setItem('examDate', state.examDate); }
+        function updateHistory() { const today = formatDate(new Date()); const done = state.routines.filter((_, i) => state.checks[`${today}-r-${i}`]).length; state.history[today] = Math.round((done / state.routines.length) * 100); save(); }
     </script>
 </body>
 </html>
