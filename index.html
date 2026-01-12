@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>마이 루틴 매니저 Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;900&display=swap');
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        .checked { text-decoration: line-through; opacity: 0.6; }
+        .active-task { border: 2px solid #6366f1 !important; transform: scale(1.01); box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.1); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* 알림용 빨간 배경 애니메이션 */
+        .urgent-bg {
+            background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+            animation: pulse-red 3s infinite;
+        }
+        @keyframes pulse-red {
+            0% { opacity: 1; }
+            50% { opacity: 0.95; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="pb-10 select-none bg-slate-50">
+
+    <div class="max-w-md mx-auto min-h-screen shadow-2xl flex flex-col relative bg-white">
+        
+        <!-- [1] 상단 통합 헤더 (디데이, 제목, 날짜 + 체크리스트) -->
+        <div id="header-section" class="pt-7 pb-5 px-5 bg-indigo-600 text-white sticky top-0 z-30 shadow-md transition-colors duration-500">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h1 class="text-xl font-black tracking-tighter italic flex items-center gap-2">
+                        MY ROUTINE
+                        <span id="event-tag" class="hidden text-[10px] bg-yellow-400 text-black px-2 py-0.5 rounded-full font-black animate-bounce">EVENT</span>
+                    </h1>
+                    <p id="today-date-display" class="text-[11px] opacity-80 font-medium"></p>
+                    <!-- 일정 알림 메시지 -->
+                    <p id="header-alert-msg" class="text-xs font-black text-yellow-200 mt-1 hidden"></p>
+                </div>
+                <div class="flex flex-col items-end">
+                    <button onclick="setExamDate()" id="d-day-display" class="bg-white/20 px-3 py-1 rounded-full text-xs font-black border border-white/20 active:scale-95 transition-all mb-2"></button>
+                </div>
+            </div>
+
+            <!-- 헤더 내부 공간을 활용한 슬림 체크리스트 -->
+            <div class="bg-black/10 rounded-xl p-3 border border-white/10">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[10px] font-black opacity-70 uppercase tracking-widest">Daily Essentials</span>
+                    <button onclick="addNewEssential()" class="text-[10px] bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded font-bold">+ 추가</button>
+                </div>
+                <div id="essentials-list" class="grid grid-cols-2 gap-x-3 gap-y-1.5 max-h-24 overflow-y-auto no-scrollbar">
+                    <!-- JS 렌더링 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 네비게이션 탭 -->
+        <div class="flex bg-white border-b border-slate-100 sticky top-0 z-20 shadow-sm">
+            <button onclick="switchTab('today')" id="tab-today" class="flex-1 py-4 text-sm font-bold text-indigo-600 border-b-2 border-indigo-600">타임라인</button>
+            <button onclick="switchTab('stats')" id="tab-stats" class="flex-1 py-4 text-sm font-bold text-slate-400">분석</button>
+            <button onclick="switchTab('edit')" id="tab-edit" class="flex-1 py-4 text-sm font-bold text-slate-400">설정/관리</button>
+        </div>
+
+        <!-- 메인 콘텐츠 -->
+        <div class="flex-1 overflow-y-auto no-scrollbar bg-slate-50/50">
+            <!-- 오늘 루틴 탭 -->
+            <div id="content-today" class="tab-content active p-4">
+                <div class="space-y-4 pb-12">
+                    <div id="status-msg" class="text-[11px] font-bold text-indigo-600 bg-indigo-50 p-2.5 rounded-xl border border-indigo-100 text-center shadow-sm"></div>
+                    <div id="routine-list" class="space-y-2.5">
+                        <!-- 루틴 리스트 렌더링 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 분석 탭 -->
+            <div id="content-stats" class="tab-content p-6 min-h-full text-center">
+                <h3 class="font-bold text-slate-800 mb-6 text-sm text-left">주간 성취도</h3>
+                <div id="weekly-chart" class="flex items-end justify-between h-32 gap-2 mb-10 px-2"></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-[10px] text-slate-400 mb-1 font-bold uppercase">평균 달성률</p>
+                        <h2 id="avg-rate" class="text-xl font-black text-indigo-600">0%</h2>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-[10px] text-slate-400 mb-1 font-bold uppercase">연속 성공</p>
+                        <h2 id="streak-days" class="text-xl font-black text-rose-500">0일</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 설정 탭 (여기에서 일정 및 루틴 관리) -->
+            <div id="content-edit" class="tab-content p-5 space-y-8 min-h-full">
+                <!-- 중요 일정 관리 섹션 -->
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-black text-slate-800 text-xs uppercase tracking-tight">📅 중요 일정 관리</h3>
+                        <button onclick="addSchedule()" class="text-[10px] bg-slate-800 text-white px-3 py-1 rounded-full font-bold shadow-sm">+ 일정 추가</button>
+                    </div>
+                    <div id="full-schedule-list" class="space-y-2"></div>
+                </div>
+
+                <!-- 타임라인 편집 섹션 -->
+                <div class="space-y-3 pt-6 border-t border-slate-100">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-black text-slate-800 text-xs uppercase tracking-tight">⏰ 루틴 타임라인 편집</h3>
+                        <button onclick="addNewRoutine()" class="text-[10px] bg-indigo-600 text-white px-3 py-1 rounded-full font-bold shadow-sm">+ 루틴 추가</button>
+                    </div>
+                    <div id="edit-list" class="space-y-2 pb-20"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = {
+            routines: JSON.parse(localStorage.getItem('routines')) || [
+                { time: "06:00", task: "기상 및 스트레칭" },
+                { time: "08:40", task: "국어 실전 모의" },
+                { time: "10:20", task: "수학 집중 문풀" },
+                { time: "12:30", task: "점심 및 휴식" },
+                { time: "13:30", task: "영어 독해" },
+                { time: "16:30", task: "탐구 영역" },
+                { time: "19:30", task: "오답 정리" },
+                { time: "22:40", task: "취침" }
+            ],
+            schedules: JSON.parse(localStorage.getItem('schedules')) || [],
+            essentials: JSON.parse(localStorage.getItem('essentials')) || ["물 2L", "영양제", "스마트폰 제출", "오답복습"],
+            history: JSON.parse(localStorage.getItem('history')) || {},
+            examDate: localStorage.getItem('examDate') || "2026-11-19",
+            checks: JSON.parse(localStorage.getItem('checks')) || {},
+            activeTab: 'today'
+        };
+
+        const getToday = () => new Date().toISOString().split('T')[0];
+        const getTomorrow = () => {
+            const d = new Date();
+            d.setDate(d.getDate() + 1);
+            return d.toISOString().split('T')[0];
+        };
+
+        window.onload = () => { 
+            renderAll(); 
+            setInterval(() => { if(state.activeTab === 'today') renderRoutine(); }, 60000); 
+        };
+
+        function renderAll() {
+            updateHeader();
+            renderEssentials();
+            if (state.activeTab === 'today') renderRoutine();
+            else if (state.activeTab === 'stats') renderStats();
+            else renderEdit();
+        }
+
+        function updateHeader() {
+            const now = new Date();
+            const todayStr = getToday();
+            const tomorrowStr = getTomorrow();
+            
+            const header = document.getElementById('header-section');
+            const alertMsg = document.getElementById('header-alert-msg');
+            const eventTag = document.getElementById('event-tag');
+            
+            document.getElementById('today-date-display').innerText = now.toLocaleDateString('ko-KR', { month:'long', day:'numeric', weekday:'short' });
+            
+            const diff = Math.ceil((new Date(state.examDate) - now) / 86400000);
+            document.getElementById('d-day-display').innerText = diff > 0 ? `D-${diff}` : `D-Day`;
+
+            const todayEvent = state.schedules.find(s => s.date === todayStr);
+            const tomorrowEvent = state.schedules.find(s => s.date === tomorrowStr);
+
+            if (todayEvent || tomorrowEvent) {
+                header.classList.add('urgent-bg');
+                header.classList.remove('bg-indigo-600');
+                alertMsg.classList.remove('hidden');
+                eventTag.classList.remove('hidden');
+                
+                if (todayEvent) {
+                    alertMsg.innerText = `🚨 오늘은 '${todayEvent.title}' 날입니다!`;
+                } else {
+                    alertMsg.innerText = `📢 내일은 '${tomorrowEvent.title}' 날입니다!`;
+                }
+            } else {
+                header.classList.remove('urgent-bg');
+                header.classList.add('bg-indigo-600');
+                alertMsg.classList.add('hidden');
+                eventTag.classList.add('hidden');
+            }
+        }
+
+        function renderEssentials() {
+            const today = getToday();
+            const list = document.getElementById('essentials-list');
+            list.innerHTML = state.essentials.map((item, i) => {
+                const checked = state.checks[`${today}-e-${i}`];
+                return `
+                    <div class="flex items-center justify-between bg-white/10 hover:bg-white/20 rounded-lg px-2 py-1.5 transition-all">
+                        <div onclick="toggleEssential(${i})" class="flex items-center gap-2 flex-1 cursor-pointer overflow-hidden">
+                            <div class="min-w-[12px] h-[12px] rounded-sm border border-white/40 flex items-center justify-center ${checked ? 'bg-white text-indigo-900' : ''}">
+                                ${checked ? '<span class="text-[8px] font-black">✓</span>' : ''}
+                            </div>
+                            <span class="text-[11px] font-bold truncate ${checked ? 'checked opacity-50' : ''}">${item}</span>
+                        </div>
+                        <button onclick="deleteEssential(${i})" class="ml-1 text-[10px] opacity-40 hover:opacity-100 px-1 font-black">×</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderRoutine() {
+            const today = getToday();
+            const container = document.getElementById('routine-list');
+            const now = new Date();
+            const curTime = now.getHours() * 60 + now.getMinutes();
+            let statusText = "☕️ 지금은 <span class='underline'>휴식 시간</span>입니다.";
+
+            container.innerHTML = state.routines.map((item, i) => {
+                const [h, m] = item.time.split(':').map(Number);
+                const isChecked = state.checks[`${today}-r-${i}`];
+                const taskTime = h * 60 + m;
+                const nextTimeStr = (i < state.routines.length - 1) ? state.routines[i+1].time : "23:59";
+                const [nh, nm] = nextTimeStr.split(':').map(Number);
+                const nextTaskTime = nh * 60 + nm;
+                
+                const isActive = curTime >= taskTime && curTime < nextTaskTime;
+                if (isActive) statusText = `🔥 지금은 <span class="underline">${item.task}</span> 시간입니다!`;
+
+                return `
+                    <div class="flex items-center justify-between p-4 rounded-2xl bg-white border transition-all ${isActive ? 'active-task ring-4 ring-indigo-50 border-indigo-200' : 'border-slate-100 shadow-sm'}">
+                        <div class="flex items-center gap-4 flex-1 cursor-pointer" onclick="toggleRoutine(${i})">
+                            <span class="text-[10px] font-black ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'} px-2 py-1 rounded-lg">${item.time}</span>
+                            <span class="text-[14px] font-bold ${isChecked ? 'checked text-slate-400' : 'text-slate-800'}">${item.task}</span>
+                        </div>
+                        <div onclick="toggleRoutine(${i})" class="w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer ${isChecked ? 'bg-indigo-600 border-indigo-600 text-white shadow-inner' : 'border-slate-200 bg-slate-50'}">
+                            ${isChecked ? '<span class="text-xs">✓</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('status-msg').innerHTML = statusText;
+        }
+
+        function toggleEssential(i) {
+            const key = `${getToday()}-e-${i}`;
+            state.checks[key] = !state.checks[key];
+            save(); renderEssentials();
+        }
+
+        function addNewEssential() {
+            const task = prompt("새로운 체크리스트 항목:");
+            if(task) { state.essentials.push(task); save(); renderEssentials(); }
+        }
+
+        function deleteEssential(i) {
+            state.essentials.splice(i, 1); save(); renderEssentials();
+        }
+
+        function toggleRoutine(i) {
+            const key = `${getToday()}-r-${i}`;
+            state.checks[key] = !state.checks[key];
+            save(); updateHistory(); renderRoutine();
+        }
+
+        function switchTab(tab) {
+            state.activeTab = tab;
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`content-${tab}`).classList.add('active');
+            document.querySelectorAll('button[id^="tab-"]').forEach(btn => {
+                btn.classList.remove('text-indigo-600', 'border-indigo-600');
+                btn.classList.add('text-slate-400');
+            });
+            document.getElementById(`tab-${tab}`).classList.add('text-indigo-600', 'border-indigo-600');
+            renderAll();
+        }
+
+        function renderStats() {
+            const chart = document.getElementById('weekly-chart');
+            const dates = Array.from({length: 7}, (_, i) => {
+                const d = new Date(); d.setDate(d.getDate() - (6-i));
+                return d.toISOString().split('T')[0];
+            });
+            chart.innerHTML = dates.map(date => {
+                const rate = state.history[date] || 0;
+                return `
+                    <div class="flex-1 flex flex-col items-center gap-2">
+                        <div class="w-full bg-slate-100 rounded-t-lg relative h-24 flex items-end overflow-hidden">
+                            <div class="w-full bg-indigo-500 rounded-t-lg transition-all duration-700" style="height: ${rate}%"></div>
+                            <span class="absolute -top-5 w-full text-center text-[9px] font-black text-indigo-600">${rate}%</span>
+                        </div>
+                        <span class="text-[9px] font-bold text-slate-400">${date.slice(8,10)}</span>
+                    </div>
+                `;
+            }).join('');
+            const rates = Object.values(state.history);
+            document.getElementById('avg-rate').innerText = `${rates.length ? Math.round(rates.reduce((a,b)=>a+b, 0) / rates.length) : 0}%`;
+            let streak = 0;
+            const sortedDates = Object.keys(state.history).sort().reverse();
+            for(let d of sortedDates) { if(state.history[d] >= 80) streak++; else break; }
+            document.getElementById('streak-days').innerText = streak + '일';
+        }
+
+        function renderEdit() {
+            // 루틴 리스트 편집 렌더링
+            const editList = document.getElementById('edit-list');
+            editList.innerHTML = state.routines.map((item, i) => `
+                <div class="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                    <input type="time" value="${item.time}" onchange="editRoutine(${i}, 'time', this.value)" class="bg-slate-50 border border-slate-200 rounded px-1 text-[11px] font-black outline-none h-8 w-20 text-center">
+                    <input type="text" value="${item.task}" onchange="editRoutine(${i}, 'task', this.value)" class="flex-1 bg-transparent text-sm font-bold text-slate-700 outline-none px-1">
+                    <button onclick="deleteRoutine(${i})" class="text-slate-300 hover:text-red-500 font-bold px-3 text-lg">×</button>
+                </div>
+            `).join('');
+
+            // 중요 일정 리스트 렌더링
+            const scheduleList = document.getElementById('full-schedule-list');
+            if(state.schedules.length === 0) {
+                scheduleList.innerHTML = `<p class="text-[10px] text-slate-400 text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">등록된 일정이 없습니다.</p>`;
+            } else {
+                scheduleList.innerHTML = state.schedules.map((s, i) => `
+                    <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                        <div>
+                            <p class="text-[9px] text-indigo-500 font-black uppercase tracking-tighter">${s.date}</p>
+                            <p class="text-sm font-bold text-slate-700">${s.title}</p>
+                        </div>
+                        <button onclick="deleteSchedule(${i})" class="text-xs text-red-400 font-bold px-2 py-1">삭제</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function addSchedule() {
+            const title = prompt("일정 내용 (예: 6월 모평):");
+            const date = prompt("날짜 (YYYY-MM-DD):", getToday());
+            if(title && date) { 
+                state.schedules.push({title, date}); 
+                state.schedules.sort((a,b) => a.date.localeCompare(b.date));
+                save(); renderEdit(); updateHeader();
+            }
+        }
+
+        function deleteSchedule(i) {
+            if(confirm('이 일정을 삭제할까요?')) { state.schedules.splice(i, 1); save(); renderEdit(); updateHeader(); }
+        }
+
+        function save() {
+            localStorage.setItem('routines', JSON.stringify(state.routines));
+            localStorage.setItem('essentials', JSON.stringify(state.essentials));
+            localStorage.setItem('schedules', JSON.stringify(state.schedules));
+            localStorage.setItem('history', JSON.stringify(state.history));
+            localStorage.setItem('checks', JSON.stringify(state.checks));
+            localStorage.setItem('examDate', state.examDate);
+        }
+
+        function updateHistory() {
+            const today = getToday();
+            const done = state.routines.filter((_, i) => state.checks[`${today}-r-${i}`]).length;
+            state.history[today] = Math.round((done / state.routines.length) * 100);
+            save();
+        }
+
+        function editRoutine(i, key, val) { state.routines[i][key] = val; state.routines.sort((a,b)=>a.time.localeCompare(b.time)); save(); renderEdit(); }
+        function addNewRoutine() { state.routines.push({time: "12:00", task: "새 루틴 항목"}); save(); renderEdit(); }
+        function deleteRoutine(i) { if(confirm('이 항목을 삭제할까요?')) { state.routines.splice(i,1); save(); renderEdit(); } }
+        function setExamDate() { const date = prompt("목표 날짜 (YYYY-MM-DD):", state.examDate); if(date) { state.examDate = date; save(); updateHeader(); } }
+    </script>
+</body>
+</html>
